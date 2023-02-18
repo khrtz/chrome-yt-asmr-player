@@ -2,6 +2,7 @@
 
 WIP
 作業中にYouTubeの音声を流す時に役立つ機能
+※ASMRや作業用BGMに特化
 Chromeで開いている全てのYouTubeの動画の再生制御を行う
 
 ### 開発中画面

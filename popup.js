@@ -1,15 +1,47 @@
-function playVideo(videoId) {
-  const player = document.createElement('iframe');
-  player.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
-  player.width = 'calc(100% - 240px)';
+let player;
 
-  player.height = '100%';
-  player.frameborder = '0';
-  player.allowFullscreen = true;
+function playVideo(videoId, tabId) {
+  if (tabId) {
+    // If a tab ID is passed, play the video in that tab
+    chrome.scripting.executeScript({
+      target: {tabId: tabId},
+      files: ['content.js']
+    }).then(() => {
+      chrome.tabs.sendMessage(tabId, {command: 'play', videoId: videoId});
+    }).catch((err) => {
+      console.error(err);
+    });
+  } else {
+    // Otherwise, find the first YouTube tab and play the video in that tab
+    chrome.tabs.query({currentWindow: true}, function(tabs) {
+      const youtubeTab = tabs.find(function(tab) {
+        return tab.url.includes('www.youtube.com');
+      });
 
-  const searchResults = document.getElementById('searchResults');
-  searchResults.innerHTML = '';
-  searchResults.appendChild(player);
+      if (youtubeTab) {
+        chrome.scripting.executeScript({
+          target: {tabId: youtubeTab.id},
+          files: ['content.js']
+        }).then(() => {
+          chrome.tabs.sendMessage(youtubeTab.id, {command: 'play', videoId: videoId});
+        }).catch((err) => {
+          console.error(err);
+        });
+      } else {
+        const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        chrome.tabs.create({ url: youtubeUrl, active: true }, function(tab) {
+          chrome.scripting.executeScript({
+            target: {tabId: tab.id},
+            files: ['content.js']
+          }).then(() => {
+            chrome.tabs.sendMessage(tab.id, {command: 'play', videoId: videoId});
+          }).catch((err) => {
+            console.error(err);
+          });
+        });
+      }
+    });
+  }
 }
 
 
@@ -37,7 +69,8 @@ function createVideoPlaylist() {
       return {
         videoId: videoId,
         title: title,
-        thumbnailUrl: thumbnailUrl
+        thumbnailUrl: thumbnailUrl,
+        tabId: tab.id
       };
     });
 
@@ -47,7 +80,7 @@ function createVideoPlaylist() {
       const li = document.createElement('li');
       li.className = 'song';
       li.onclick = function() {
-        playVideo(video.videoId);
+        playVideo(video.videoId, video.tabId);
       };
       const thumbnail = document.createElement('img');
       thumbnail.src = video.thumbnailUrl;
@@ -59,43 +92,24 @@ function createVideoPlaylist() {
       li.appendChild(titleElement);
       playlist.appendChild(li);
     });
+
   });
 }
+
+
 
 document.addEventListener('DOMContentLoaded', function() {
   createVideoPlaylist();
 });
 
+// window.addEventListener('beforeunload', function(e) {
+//   if (player) {
+//     e.preventDefault();
+//     e.returnValue = '';
+//     window.removeEventListener('unload', stopPlayer);
+//   }
+// });
 
-// Add bookmark button to each video
-const bookmarkButton = document.createElement('button');
-bookmarkButton.textContent = 'Bookmark';
-bookmarkButton.onclick = function(event) {
-  event.stopPropagation();
-  addBookmark(video);
-};
-li.appendChild(bookmarkButton);
-
-function addBookmark(video) {
-  // Create a new bookmark folder or find an existing one
-  chrome.bookmarks.search({title: 'YouTube Music Player'}, function(results) {
-    if (results.length > 0) {
-      const folder = results[0];
-      addBookmarkToFolder(folder.id, video);
-    } else {
-      chrome.bookmarks.create({title: 'YouTube Music Player'}, function(newFolder) {
-        addBookmarkToFolder(newFolder.id, video);
-      });
-    }
-  });
-}
-
-function addBookmarkToFolder(folderId, video) {
-  const bookmark = {
-    title: video.title,
-    url: `https://www.youtube.com/watch?v=${video.videoId}`
-  };
-  chrome.bookmarks.create({parentId: folderId, title: bookmark.title, url: bookmark.url}, function() {
-    alert(`"${bookmark.title}" bookmarked!`);
-  });
-}
+// window.onbeforeunload = function () {
+//   return;
+// };

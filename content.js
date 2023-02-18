@@ -2,7 +2,7 @@ let lastClickTime = 0;
 
 function clickPlayButton() {
   const now = Date.now();
-  if (now - lastClickTime > 1000) {
+  if (now - lastClickTime > 500) {
     const playButton = document.querySelector('button.ytp-play-button');
     if (playButton) {
       console.log("click!!");

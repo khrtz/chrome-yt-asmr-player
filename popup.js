@@ -1,71 +1,30 @@
 let player;
+let currentPlayingIndex = -1;
+let isPlaying = false;
 
 function playVideo(videoId, tabId) {
-  if (tabId) {
-    // If a tab ID is passed, play the video in that tab
-    chrome.scripting.executeScript({
-      target: {tabId: tabId},
-      files: ['content.js']
-    }).then(() => {
-      chrome.tabs.sendMessage(tabId, {command: 'play', videoId: videoId});
-    }).catch((err) => {
-      console.error(err);
-    });
-  } else {
-    // Otherwise, find the first YouTube tab and play the video in that tab
-    chrome.tabs.query({currentWindow: true}, function(tabs) {
-      const youtubeTab = tabs.find(function(tab) {
-        return tab.url.includes('www.youtube.com');
-      });
-
-      if (youtubeTab) {
-        chrome.scripting.executeScript({
-          target: {tabId: youtubeTab.id},
-          files: ['content.js']
-        }).then(() => {
-          chrome.tabs.sendMessage(youtubeTab.id, {command: 'play', videoId: videoId});
-        }).catch((err) => {
-          console.error(err);
-        });
-      } else {
-        const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        chrome.tabs.create({ url: youtubeUrl, active: true }, function(tab) {
-          chrome.scripting.executeScript({
-            target: {tabId: tab.id},
-            files: ['content.js']
-          }).then(() => {
-            chrome.tabs.sendMessage(tab.id, {command: 'play', videoId: videoId});
-          }).catch((err) => {
-            console.error(err);
-          });
-        });
-      }
-    });
-  }
+  chrome.tabs.sendMessage(tabId, {command: 'play', videoId: videoId}, function(response) {
+    if (response && response.status === 'played') {
+      isPlaying = true;
+      currentPlayingIndex = videos.findIndex(v => v.videoId === videoId);
+      updatePlayButtons();
+    }
+  });
 }
 
-
 function createVideoPlaylist() {
-  // Get all the tabs that are currently open
   chrome.tabs.query({currentWindow: true}, function(tabs) {
-    // Filter the tabs to those that have a YouTube URL
     const youtubeTabs = tabs.filter(function(tab) {
       return tab.url.includes('www.youtube.com');
     });
 
-    // Extract the video information from the YouTube tabs
-    const videos = youtubeTabs.map(function(tab) {
-      // Extract the video ID from the URL
+    videos = youtubeTabs.map(function(tab) {
       const url = new URL(tab.url);
       const videoId = url.searchParams.get('v');
-
-      // Extract the video title and thumbnail from the page metadata
       let title = tab.title.split(' - YouTube')[0];
-      // Remove the number at the start of the title
       title = title.replace(/^\(\d+\)\s+/, '');
-      const thumbnailUrl = tab.favIconUrl.replace('s16', 's88');
+      const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
 
-      // Return the video object
       return {
         videoId: videoId,
         title: title,
@@ -74,42 +33,129 @@ function createVideoPlaylist() {
       };
     });
 
-    // Add the videos to the playlist
     const playlist = document.getElementById('playlist');
-    videos.forEach(function(video) {
-      const li = document.createElement('li');
-      li.className = 'song';
-      li.onclick = function() {
-        playVideo(video.videoId, video.tabId);
-      };
+    playlist.innerHTML = '';
+
+    videos.forEach(function(video, index) {
+      const songElement = document.createElement('div');
+      songElement.className = 'song';
+
       const thumbnail = document.createElement('img');
       thumbnail.src = video.thumbnailUrl;
+      thumbnail.alt = video.title;
       thumbnail.width = '64';
       thumbnail.height = '64';
-      li.appendChild(thumbnail);
+      songElement.appendChild(thumbnail);
+
       const titleElement = document.createElement('h3');
       titleElement.textContent = video.title;
-      li.appendChild(titleElement);
-      playlist.appendChild(li);
+      songElement.appendChild(titleElement);
+
+      const controlsElement = document.createElement('div');
+      controlsElement.className = 'song-controls';
+
+      const playButton = createControlButton('▶', () => togglePlay(index));
+      playButton.id = `play-button-${index}`;
+      const removeButton = createControlButton('×', () => removeSong(index));
+
+      controlsElement.appendChild(playButton);
+      // controlsElement.appendChild(removeButton);
+      songElement.appendChild(controlsElement);
+
+      playlist.appendChild(songElement);
     });
 
+    updatePlayButtons();
   });
 }
 
+function createControlButton(text, onClick) {
+  const button = document.createElement('button');
+  button.className = 'song-control-button';
+  button.textContent = text;
+  button.addEventListener('click', (e) => {
+    e.stopPropagation();
+    onClick();
+  });
+  return button;
+}
 
+function togglePlay(index) {
+  if (currentPlayingIndex === index) {
+    if (isPlaying) {
+      pauseVideo();
+    } else {
+      resumeVideo();
+    }
+  } else {
+    if (currentPlayingIndex !== -1) {
+      stopVideo();
+    }
+    playVideo(videos[index].videoId, videos[index].tabId);
+    currentPlayingIndex = index;
+  }
+}
 
-document.addEventListener('DOMContentLoaded', function() {
+function updatePlayButtons() {
+  videos.forEach((video, index) => {
+    const playButton = document.getElementById(`play-button-${index}`);
+    if (index === currentPlayingIndex) {
+      if (isPlaying) {
+        playButton.textContent = '⏸️';
+        playButton.classList.add('playing');
+        playButton.classList.remove('paused');
+      } else {
+        playButton.textContent = '▶️';
+        playButton.classList.add('paused');
+        playButton.classList.remove('playing');
+      }
+    } else {
+      playButton.textContent = '▶️';
+      playButton.classList.remove('playing', 'paused');
+    }
+  });
+}
+
+function stopVideo() {
+  if (currentPlayingIndex >= 0) {
+    const video = videos[currentPlayingIndex];
+    chrome.tabs.sendMessage(video.tabId, {command: 'stop'}, function(response) {
+      if (response && response.status === 'stopped') {
+        isPlaying = false;
+        currentPlayingIndex = -1;
+        updatePlayButtons();
+      }
+    });
+  }
+}
+
+function pauseVideo() {
+  if (currentPlayingIndex >= 0) {
+    const video = videos[currentPlayingIndex];
+    chrome.tabs.sendMessage(video.tabId, {command: 'pause'}, function(response) {
+      if (response && response.status === 'paused') {
+        isPlaying = false;
+        updatePlayButtons();
+      }
+    });
+  }
+}
+
+function resumeVideo() {
+  if (currentPlayingIndex >= 0) {
+    const video = videos[currentPlayingIndex];
+    chrome.tabs.sendMessage(video.tabId, {command: 'play'}, function(response) {
+      if (response && response.status === 'played') {
+        isPlaying = true;
+        updatePlayButtons();
+      }
+    });
+  }
+}
+
+function removeSong(index) {
+  videos.splice(index, 1);
   createVideoPlaylist();
-});
+}
 
-// window.addEventListener('beforeunload', function(e) {
-//   if (player) {
-//     e.preventDefault();
-//     e.returnValue = '';
-//     window.removeEventListener('unload', stopPlayer);
-//   }
-// });
-
-// window.onbeforeunload = function () {
-//   return;
-// };
+document.addEventListener('DOMContentLoaded', createVideoPlaylist);

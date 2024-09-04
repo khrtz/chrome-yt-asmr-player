@@ -36,12 +36,7 @@ h1 {
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
-  padding-right: 60px;
-}
-
-.song:hover {
-  background-color: #444444;
-  transform: translateX(5px);
+  padding-right: 40px; /* アクティベートボタン用のスペース */
 }
 
 .song img {
@@ -52,11 +47,15 @@ h1 {
   margin-right: 12px;
 }
 
+.song-info {
+  flex-grow: 1;
+  overflow: hidden;
+}
+
 .song h3 {
   font-size: 14px;
   font-weight: 400;
   margin: 0;
-  flex-grow: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -64,12 +63,48 @@ h1 {
 }
 
 .song-controls {
+  display: flex;
+  gap: 5px;
+}
+
+.play-button,
+.activate-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 5px;
+}
+
+.activate-button {
   position: absolute;
   right: 8px;
   top: 50%;
   transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  padding: 0;
   display: flex;
-  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.activate-button:hover {
+  opacity: 1;
+}
+
+.icon-activate {
+  font-size: 18px;
+  color: #ffffff; /* 白色に変更 */
+}
+
+.activate-button:hover .icon-activate {
+  color: #8b8b8b; /* ホバー時は明るい緑色に変更 */
 }
 
 .song-control-button {
@@ -92,5 +127,11 @@ h1 {
 }
 
 .song-control-button.playing {
-  background-color: #1db954;
+  background-color: #f73333;
+}
+
+.video-progress {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
 }

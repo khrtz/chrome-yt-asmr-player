@@ -5,9 +5,8 @@ WIP
 ※ASMRや作業用BGMに特化
 Chromeで開いている全てのYouTubeの動画の再生制御を行う
 
-### 開発中画面
 
-<img src="https://user-images.githubusercontent.com/3260407/219857040-0910a581-3991-4cc6-8b68-12cdf162eef6.png" width="500px">
+![image](https://github.com/user-attachments/assets/6a1efbae-06ba-4293-bbb4-f4cbdc1f1838)
 
 ### インストール
 開発中のためこの手順でインストールしてください。

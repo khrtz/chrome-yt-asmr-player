@@ -18,7 +18,34 @@ function playVideo(videoId, tabId) {
       console.error(err);
     });
   } else {
-   
+    chrome.tabs.query({currentWindow: true}, function(tabs) {
+      const youtubeTab = tabs.find(function(tab) {
+        return tab.url.includes('www.youtube.com');
+      });
+
+      if (youtubeTab) {
+        chrome.scripting.executeScript({
+          target: {tabId: youtubeTab.id},
+          files: ['content.js']
+        }).then(() => {
+          chrome.tabs.sendMessage(youtubeTab.id, {command: 'play', videoId: videoId});
+        }).catch((err) => {
+          console.error(err);
+        });
+      } else {
+        const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        chrome.tabs.create({ url: youtubeUrl, active: true }, function(tab) {
+          chrome.scripting.executeScript({
+            target: {tabId: tab.id},
+            files: ['content.js']
+          }).then(() => {
+            chrome.tabs.sendMessage(tab.id, {command: 'play', videoId: videoId});
+          }).catch((err) => {
+            console.error(err);
+          });
+        });
+      }
+    });
   }
 }
 

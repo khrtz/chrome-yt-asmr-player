@@ -13,20 +13,28 @@ function clickPlayButton() {
 }
 
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-if (request.command === 'play') {
-    document.querySelector('video').addEventListener('loadeddata', function() {
-    if (this.paused) {
-        this.play();
-        console.log("play!!")
+  const video = document.querySelector('video');
+  if (!video) {
+    sendResponse({status: 'error', message: 'Video element not found'});
+    return true;
+  }
 
-        chrome.runtime.sendMessage({command: 'played'});
-    } else {
-        console.log("pause!!")
-        this.pause();
-        chrome.runtime.sendMessage({command: 'paused'});
-    }
-    });
-    clickPlayButton();
-}
+  switch (request.command) {
+    case 'play':
+      video.play();
+      sendResponse({status: 'played'});
+      break;
+    case 'pause':
+      video.pause();
+      sendResponse({status: 'paused'});
+      break;
+    case 'stop':
+      video.pause();
+      video.currentTime = 0;
+      sendResponse({status: 'stopped'});
+      break;
+    default:
+      sendResponse({status: 'error', message: 'Unknown command'});
+  }
+  return true; // 非同期レスポンスのために必要
 });
-  

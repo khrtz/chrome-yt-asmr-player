@@ -1,4 +1,4 @@
-# chrome-yt-asmr-player
+# yt-tab-player
 
 WIP
 作業中にYouTubeの音声を流す時に役立つ機能

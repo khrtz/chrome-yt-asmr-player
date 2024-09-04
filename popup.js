@@ -3,13 +3,23 @@ let currentPlayingIndex = -1;
 let isPlaying = false;
 
 function playVideo(videoId, tabId) {
-  chrome.tabs.sendMessage(tabId, {command: 'play', videoId: videoId}, function(response) {
-    if (response && response.status === 'played') {
-      isPlaying = true;
-      currentPlayingIndex = videos.findIndex(v => v.videoId === videoId);
-      updatePlayButtons();
-    }
-  });
+  if (tabId) {
+    chrome.scripting.executeScript({
+      target: {tabId: tabId},
+      files: ['content.js']
+    }).then(() => {
+      chrome.tabs.sendMessage(tabId, {command: 'play', videoId: videoId}, (response) => {
+        if (response && response.status === 'played') {
+          currentPlayingIndex = videos.findIndex(v => v.videoId === videoId);
+          updatePlayButtons();
+        }
+      });
+    }).catch((err) => {
+      console.error(err);
+    });
+  } else {
+   
+  }
 }
 
 function createVideoPlaylist() {
@@ -37,19 +47,27 @@ function createVideoPlaylist() {
     playlist.innerHTML = '';
 
     videos.forEach(function(video, index) {
-      const songElement = document.createElement('div');
-      songElement.className = 'song';
+      const li = document.createElement('li');
+      li.className = 'song';
+      li.dataset.index = index;
+      li.onclick = function() {
+        if (currentPlayingIndex === index) {
+          pauseVideo();
+        } else {
+          playVideo(video.videoId, video.tabId);
+        }
+      };
 
       const thumbnail = document.createElement('img');
       thumbnail.src = video.thumbnailUrl;
       thumbnail.alt = video.title;
       thumbnail.width = '64';
       thumbnail.height = '64';
-      songElement.appendChild(thumbnail);
+      li.appendChild(thumbnail);
 
       const titleElement = document.createElement('h3');
       titleElement.textContent = video.title;
-      songElement.appendChild(titleElement);
+      li.appendChild(titleElement);
 
       const controlsElement = document.createElement('div');
       controlsElement.className = 'song-controls';
@@ -60,9 +78,9 @@ function createVideoPlaylist() {
 
       controlsElement.appendChild(playButton);
       // controlsElement.appendChild(removeButton);
-      songElement.appendChild(controlsElement);
+      li.appendChild(controlsElement);
 
-      playlist.appendChild(songElement);
+      playlist.appendChild(li);
     });
 
     updatePlayButtons();
@@ -98,20 +116,11 @@ function togglePlay(index) {
 
 function updatePlayButtons() {
   videos.forEach((video, index) => {
-    const playButton = document.getElementById(`play-button-${index}`);
+    const li = document.querySelector(`.song[data-index="${index}"]`);
     if (index === currentPlayingIndex) {
-      if (isPlaying) {
-        playButton.textContent = '⏸️';
-        playButton.classList.add('playing');
-        playButton.classList.remove('paused');
-      } else {
-        playButton.textContent = '▶️';
-        playButton.classList.add('paused');
-        playButton.classList.remove('playing');
-      }
+      li.classList.add('playing');
     } else {
-      playButton.textContent = '▶️';
-      playButton.classList.remove('playing', 'paused');
+      li.classList.remove('playing');
     }
   });
 }
@@ -132,9 +141,8 @@ function stopVideo() {
 function pauseVideo() {
   if (currentPlayingIndex >= 0) {
     const video = videos[currentPlayingIndex];
-    chrome.tabs.sendMessage(video.tabId, {command: 'pause'}, function(response) {
+    chrome.tabs.sendMessage(video.tabId, {command: 'pause'}, (response) => {
       if (response && response.status === 'paused') {
-        isPlaying = false;
         updatePlayButtons();
       }
     });
@@ -158,4 +166,6 @@ function removeSong(index) {
   createVideoPlaylist();
 }
 
-document.addEventListener('DOMContentLoaded', createVideoPlaylist);
+document.addEventListener('DOMContentLoaded', function() {
+  createVideoPlaylist();
+});
